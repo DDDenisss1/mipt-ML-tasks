@@ -120,14 +120,14 @@ def standardize(x):
 ### 🚀 Запуск
 
 **Только ALS:**
-```python
+```bash
 python als_model.py
 ```
 
 Создаёт файл `submission_als.csv` с предсказаниями ALS.
 
 **EASE + KNN + ALS (финальное решение):**
-```python
+```bash
 python ease_knn.py 2400 0.87 0.15 0.10
 ```
 
