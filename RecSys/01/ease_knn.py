@@ -210,7 +210,7 @@ submission = test.copy()
 submission["score"] = final_scores
 
 out = (
-    f"CONFIDENCE_480.0_factors_32_ITERATIONS_120.csv"
+    f"CONFIDENCE_400.0_factors_32_ITERATIONS_120.csv"
 )
 
 submission[["user", "track", "score"]].to_csv(
