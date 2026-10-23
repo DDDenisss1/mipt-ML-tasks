@@ -4,13 +4,12 @@
 > ФПМИ МФТИ, 2026 | Специальность: "Разработчик BigData"
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.10-blue)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.x-red)](https://pytorch.org/)
-[![pandas](https://img.shields.io/badge/pandas-2.x-green)](https://pandas.pydata.org/)
-[![scipy](https://img.shields.io/badge/scipy-1.x-blue)](https://scipy.org/)
-[![implicit](https://img.shields.io/badge/implicit-0.6-orange)](https://github.com/benfred/implicit)
-[![scikit-learn](https://img.shields.io/badge/sklearn-1.x-green)](https://scikit-learn.org/)
-[![LightFM](https://img.shields.io/badge/LightFM-1.x-blue)](https://github.com/lyst/lightfm)
+[![Python](https://img.shields.io/badge/Python-3.14.3-blue)](https://www.python.org/)
+[![pandas](https://img.shields.io/badge/pandas-3.0.6-green)](https://pandas.pydata.org/)
+[![NumPy](https://img.shields.io/badge/NumPy-2.5.3-blue)](https://numpy.org/)
+[![SciPy](https://img.shields.io/badge/SciPy-1.18.1-blue)](https://scipy.org/)
+[![implicit](https://img.shields.io/badge/implicit-0.7.3-orange)](https://github.com/benfred/implicit)
+[![tqdm](https://img.shields.io/badge/tqdm-4.70.1-green)](https://github.com/tqdm/tqdm)
 
 ---
 
