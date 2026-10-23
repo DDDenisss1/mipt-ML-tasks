@@ -100,7 +100,7 @@ final_score = (1 - BETA) * (ease_knn_score) + BETA * als_score
 
 ---
 
-###🔹 Шаг 5: Нормализация скоринга
+### 🔹 Шаг 5: Нормализация скоринга
 Перед объединением в ансамбль все скоры приводятся к единому масштабу:
 ```python
 def standardize(x):
@@ -110,37 +110,29 @@ def standardize(x):
 
 ### 📊 Результаты
 
-|  | NDCG | Параметры |
-|---------|----------|
-| LightFM (baseline) | ... |  |
-
 | Модель | NDCG | Параметры |
 |---------|----------|----------|
 | LightFM (baseline) | ... | — |
 | EASE | 0.96671 | `LAM=2400, THR=0.87` |
 | EASE + KNN | 0.96735 | `LAM=2400, THR=0.87, K=200, ALPHA=0.15` |
-| EASE + KNN + ALS | 0.97040 | `LAM=2400, THR=0.87, K=200, ALPHA=0.15, CONFIDENCE=480, FACTORS=32, ITERATIONS=120, BETA=0.10` |
+| **EASE + KNN + ALS** | **0.97040** | `LAM=2400, THR=0.87, K=200, ALPHA=0.15, CONFIDENCE=480, FACTORS=32, ITERATIONS=120, BETA=0.10` |
 
+### 🚀 Запуск
 
-EASE
-0.96671
-LAM=2400, THR=0.87
-EASE + KNN
-0.96735
-LAM=2400, THR=0.87, K=200, ALPHA=0.15
-EASE + KNN + ALS
-0.97040
-LAM=2400, THR=0.87, K=200, ALPHA=0.15, CONFIDENCE=480, FACTORS=32, ITERATIONS=120, BETA=0.10
-🚀 Запуск
-Только ALS:
+**Только ALS:**
+```python
 python als_model.py
+```
 
-Создаёт файл submission_als.csv с предсказаниями ALS.
-EASE + KNN + ALS (финальное решение):
+Создаёт файл `submission_als.csv` с предсказаниями ALS.
+
+**EASE + KNN + ALS (финальное решение):**
+```python
 python ease_knn.py 2400 0.87 0.15 0.10
+```
 
-Параметры передаются через аргументы командной строки: LAM, THR, ALPHA, BETA.
-Создаёт файл submission.csv с финальными предсказаниями ансамбля.
+Параметры передаются через аргументы командной строки: `LAM`, `THR`, `ALPHA`, `BETA`.
+Создаёт файл `submission.csv` с финальными предсказаниями ансамбля.
 
 
 
