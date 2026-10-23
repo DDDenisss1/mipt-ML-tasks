@@ -7,7 +7,7 @@ THR = 0.87
 FACTORS = 32
 REGULARIZATION = 0.25
 ITERATIONS = 120
-CONFIDENCE = 480.0
+CONFIDENCE = 400.0
 
 train = pd.read_csv("train.csv")
 test = pd.read_csv("test.csv")
