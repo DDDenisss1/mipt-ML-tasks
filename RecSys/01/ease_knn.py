@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 
-# Parameters
 LAM = float(sys.argv[1]) if len(sys.argv) > 1 else 2400.0
 THR = float(sys.argv[2]) if len(sys.argv) > 2 else 0.87
 ALPHA = float(sys.argv[3]) if len(sys.argv) > 3 else 0.15
@@ -18,7 +17,6 @@ if not 0.0 <= ALPHA <= 1.0:
 if not 0.0 <= BETA <= 1.0:
     raise ValueError("BETA must be between 0 and 1")
 
-# Load data
 train = pd.read_csv("train.csv")
 test = pd.read_csv("test.csv")
 
@@ -33,14 +31,14 @@ if not required_test.issubset(test.columns):
 
 pos = train[train["time"] > THR].copy()
 
-# Build mappings from all training users and tracks
+# Построение отображений для всех пользователей и треков из обучающей выборки
 uniq_u = np.sort(train["user"].unique())
 uniq_i = np.sort(train["track"].unique())
 
 u_pos = {u: k for k, u in enumerate(uniq_u)}
 i_pos = {t: k for k, t in enumerate(uniq_i)}
 
-# Build binary user-item matrix
+# Построение бинарной матрицы user-item
 def build_matrix(df):
     r = df["user"].map(u_pos).to_numpy()
     c = df["track"].map(i_pos).to_numpy()
@@ -57,7 +55,7 @@ def build_matrix(df):
         dtype=np.float32,
     )
 
-    # Binary interactions; repeated interactions count once
+    # Бинарные взаимодействия; повторные взаимодействия считаются один раз
     X.data[:] = 1.0
     X.eliminate_zeros()
     return X
@@ -78,14 +76,13 @@ def ease(X, lam):
     np.fill_diagonal(B, 0.0)
     return B
 
-# Train EASE
+# Обучение EASE
 print(f"Training EASE: LAM={LAM}, THR={THR}")
 
 X = build_matrix(pos)
 B_ease = ease(X, LAM)
 S_ease = (X @ B_ease).astype(np.float32)
 
-# Candidate pairs from test.csv, preserving original order
 tu = test["user"].map(u_pos).to_numpy()
 ti = test["track"].map(i_pos).to_numpy()
 
@@ -141,14 +138,14 @@ S_knn = X @ W
 knn_scores = np.asarray(S_knn[tu, ti]).ravel()
 knn_scores = standardize(knn_scores)
 
-# EASE + KNN ensemble
+# EASE + KNN
 final_scores = (
     (1.0 - ALPHA) * ease_scores
     + ALPHA * knn_scores
 )
 
 
-# Optional ALS blending
+# Добавление ALS 
 if BETA > 0:
     print(f"Loading ALS predictions: {ALS_FILE}")
 
@@ -164,7 +161,7 @@ if BETA > 0:
     if als_sub[["user", "track", "score"]].isna().any().any():
         raise ValueError(f"{ALS_FILE} contains missing values")
 
-    # Average repeated predictions for identical user-track pairs
+    # Усреднение повторных предсказаний для одинаковых пар user-track
     als_sub = (
         als_sub.groupby(
             ["user", "track"],
@@ -174,7 +171,7 @@ if BETA > 0:
         .mean()
     )
 
-    # Use a MultiIndex to align ALS predictions to test pairs
+    # Использование MultiIndex для выравнивания предсказаний ALS с тестовыми парами
     als_index = pd.MultiIndex.from_frame(
         als_sub[["user", "track"]]
     )
@@ -202,7 +199,7 @@ if BETA > 0:
         + BETA * als_scores
     )
 
-# Save submission
+# submission
 if not np.isfinite(final_scores).all():
     raise ValueError("Final scores contain NaN or infinite values")
 
