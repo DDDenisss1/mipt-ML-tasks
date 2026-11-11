@@ -1,0 +1,186 @@
+import atexit
+import json
+import logging
+import os
+import time
+from dataclasses import asdict
+from datetime import datetime
+
+from flask import Flask
+from flask_redis import Redis
+from flask_restful import Resource, Api, abort, reqparse
+from gevent.pywsgi import WSGIServer
+
+from botify.data import DataLogger, Datum
+from botify.experiment import Experiments, Treatment
+from botify.recommenders.indexed import Indexed
+from botify.recommenders.i2i import I2IRecommender
+from botify.recommenders.random import Random
+from botify.recommenders.sticky_artist import StickyArtist
+from botify.track import Catalog
+
+root = logging.getLogger()
+root.setLevel("INFO")
+
+app = Flask(__name__)
+app.config.from_file("config.json", load=json.load)
+api = Api(app)
+
+# Сбор обучающих логов через StickyArtist до обучения моделей
+BOOTSTRAP = os.environ.get("BOTIFY_BOOTSTRAP", "0") == "1"
+
+tracks_redis = Redis(app, config_prefix="REDIS_TRACKS")
+artists_redis = Redis(app, config_prefix="REDIS_ARTIST")
+listen_history_redis = Redis(app, config_prefix="REDIS_LISTEN_HISTORY")
+recommendations_ub_redis = Redis(app, config_prefix="REDIS_RECOMMENDATIONS_UB")
+recommendations_lfm_redis = Redis(app, config_prefix="REDIS_RECOMMENDATIONS_LFM")
+recommendations_contextual_redis = Redis(app, config_prefix="REDIS_RECOMMENDATIONS_SASREC")
+
+recommendations_als_redis = Redis(app, config_prefix="REDIS_RECOMMENDATIONS_ALS")
+
+data_logger = DataLogger(app)
+atexit.register(data_logger.close)
+
+catalog = Catalog(app).load(app.config["TRACKS_CATALOG"])
+catalog.upload_tracks(tracks_redis.connection)
+catalog.upload_artists(artists_redis.connection)
+
+random_recommender = Random(tracks_redis.connection)
+sticky_artist_recommender = StickyArtist(tracks_redis, artists_redis, catalog)
+
+ub_recommender = None
+
+if not BOOTSTRAP:
+    catalog.upload_recommendations(
+        recommendations_ub_redis.connection,
+        "RECOMMENDATIONS_UB_FILE_PATH",
+    )
+    ub_recommender = Indexed(
+        recommendations_ub_redis.connection,
+        catalog,
+        random_recommender
+    )
+
+catalog.upload_recommendations(
+    recommendations_lfm_redis.connection,
+    "RECOMMENDATIONS_LFM_FILE_PATH",
+    key_object="item_id",
+    key_recommendations="recommendations",
+)
+lightfm_i2i_recommender = I2IRecommender(
+    listen_history_redis.connection,
+    recommendations_lfm_redis.connection,
+    random_recommender,
+)
+
+catalog.upload_recommendations(
+    recommendations_contextual_redis.connection,
+    "RECOMMENDATIONS_SASREC_FILE_PATH",
+    key_object="item_id",
+    key_recommendations="recommendations",
+)
+sasrec_i2i_recommender = I2IRecommender(
+    listen_history_redis.connection,
+    recommendations_contextual_redis.connection,
+    random_recommender,
+)
+
+als_recommender = None
+
+if not BOOTSTRAP:
+    catalog.upload_recommendations(
+        recommendations_als_redis.connection,
+        "RECOMMENDATIONS_ALS_FILE_PATH",
+    )
+    als_recommender = Indexed(
+        recommendations_als_redis.connection,
+        catalog,
+        random_recommender
+    )
+
+parser = reqparse.RequestParser()
+parser.add_argument("track", type=int, location="json", required=True)
+parser.add_argument("time", type=float, location="json", required=True)
+
+
+class Hello(Resource):
+    def get(self):
+        return {
+            "status": "alive",
+            "message": "welcome to botify, the best toy music recommender",
+        }
+
+
+class Track(Resource):
+    def get(self, track: int):
+        data = tracks_redis.connection.get(track)
+        if data is not None:
+            return asdict(catalog.from_bytes(data))
+        else:
+            abort(404, description="Track not found")
+
+
+class NextTrack(Resource):
+    def post(self, user: int):
+        start = time.time()
+
+        args = parser.parse_args()
+
+        # C — User-Based, T1 — ALS
+        treatment = Experiments.HOMEWORK.assign(user)
+        if BOOTSTRAP:
+            recommender = sticky_artist_recommender
+        elif treatment == Treatment.C:
+            recommender = ub_recommender
+        elif treatment == Treatment.T1:
+            recommender = als_recommender
+        elif treatment == Treatment.T2:
+            recommender = lightfm_i2i_recommender
+        elif treatment == Treatment.T3:
+            recommender = sasrec_i2i_recommender
+        else:
+            recommender = sticky_artist_recommender
+
+        recommendation = recommender.recommend_next(user, args.track, args.time)
+
+        data_logger.log(
+            "next",
+            Datum(
+                int(datetime.now().timestamp() * 1000),
+                user,
+                args.track,
+                args.time,
+                time.time() - start,
+                recommendation,
+            ),
+        )
+        return {"user": user, "track": recommendation}
+
+
+class LastTrack(Resource):
+    def post(self, user: int):
+        start = time.time()
+        args = parser.parse_args()
+        data_logger.log(
+            "last",
+            Datum(
+                int(datetime.now().timestamp() * 1000),
+                user,
+                args.track,
+                args.time,
+                time.time() - start,
+            )
+        )
+        return {"user": user}
+
+
+api.add_resource(Hello, "/")
+api.add_resource(Track, "/track/<int:track>")
+api.add_resource(NextTrack, "/next/<int:user>")
+api.add_resource(LastTrack, "/last/<int:user>")
+
+app.logger.info("Botify service stared")
+
+if __name__ == "__main__":
+    http_server = WSGIServer(("", 5001), app)
+    http_server.serve_forever()
